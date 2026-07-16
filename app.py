@@ -7,10 +7,14 @@ from rembg import remove
 import hashlib
 from datetime import datetime
 
-# --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Express Passport Maker", layout="wide")
+# --- 1. SET PAGE CONFIG (Force expanded sidebar by default) ---
+st.set_page_config(
+    page_title="Express Passport Maker", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- FORCE LIGHT MODE VIA CSS (Overrides stuck Dark Mode browser settings) ---
+# --- FORCE LIGHT MODE & VISIBILITY VIA CSS ---
 st.markdown(
     """
     <style>
@@ -57,7 +61,6 @@ A4_HEIGHT = 3508
 st.title("Express Passport Maker 📸")
 
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
-# Securely retrieve secret or fall back to default for local development
 MASTER_SECRET = st.secrets.get("MASTER_SECRET")
 secret_fallback_active = False
 
@@ -108,18 +111,15 @@ def get_days_left_in_cycle():
     elif 15 <= day <= 21:
         days_left = 21 - day
     else:
-        # Week 4 goes to the last day of the month
         _, last_day = monthrange(year, month)
         days_left = last_day - day
         
     return days_left
 
 # --- 🔓 ADMIN EXEMPTION CHECK ---
-# Checking if you accessed via the admin link: your-url/?admin=true
 is_admin_bypass = "admin" in st.query_params and st.query_params["admin"] == "true"
 
 # --- 🔐 HIDDEN ADMIN PORTAL (Main Screen Triggered) ---
-# Runs right after bypass state and keys are safely defined
 if is_admin_bypass:
     with st.container():
         st.success("⚡ Admin Mode Active: Client Keys Generated Automatically!")
@@ -130,7 +130,7 @@ if is_admin_bypass:
         col4.code(f"Week 4 Key:\n{PASSWORDS['week_4']}")
         st.markdown("---")
 
-# Show secret diagnostic warning only to admin to ensure client interface is pristine
+# Show secret diagnostic warning only to admin
 if is_admin_bypass and secret_fallback_active:
     st.sidebar.warning("⚠️ Secrets Loading: 'MASTER_SECRET' is using local_test_key")
 
@@ -149,20 +149,67 @@ else:
         )
     access_granted = user_password in allowed_keys
 
+# --- ALWAYS-VISIBLE SIDEBAR CONTROLS ---
+st.sidebar.header("🎨 Image Editing & Settings")
+bg_color_hex = st.sidebar.color_picker("Choose Background Color", "#FFFFFF")
+
+size_option = st.sidebar.selectbox(
+    "Select Passport Size",
+    [
+        "2 x 2 inches (US / India)", 
+        "35 x 45 mm (UK / Europe / Kenya)",
+        "35 x 43 mm",
+        "prof size",
+        "Custom"
+    ]
+)
+
+photo_width = 600
+photo_height = 600
+
+if size_option == "2 x 2 inches (US / India)":
+    photo_width, photo_height = 600, 600
+elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
+    photo_width, photo_height = 413, 531
+elif size_option == "35 x 43 mm":
+    photo_width, photo_height = 413, 508
+elif size_option == "prof size":
+    photo_width, photo_height = 413, 531
+elif size_option == "Custom":
+    col_w, col_h = st.sidebar.columns(2)
+    custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
+    custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
+    
+    if custom_w is not None and custom_h is not None:
+        if int(custom_w) > 0 and int(custom_h) > 0:
+            photo_width = int(custom_w)
+            photo_height = int(custom_h)
+
+photo_width = max(100, photo_width)
+photo_height = max(100, photo_height)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔢 Layout Settings")
+num_copies = st.sidebar.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
+
+st.sidebar.markdown("### Image Adjustments")
+brightness = st.sidebar.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
+contrast = st.sidebar.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
+saturation = st.sidebar.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
+
+
+# --- APPLICATION EXECUTION ---
 if access_granted:
     if not is_admin_bypass:
         st.success("✅ Access Granted! Editor unlocked.")
-        
-        # 📆 Calculate days remaining in the active week
         days_remaining = get_days_left_in_cycle()
         
-        # Display the custom reminder banner
         if days_remaining == 0:
-            st.warning("⚠️ **Reminder:** Your weekly Access Key expires **tonight at midnight**! Please renew your subscription to avoid losing access.")
+            st.warning("⚠️ **Reminder:** Your weekly Access Key expires **tonight at midnight**!")
         elif days_remaining <= 2:
-            st.warning(f"⚠️ **Reminder:** Only **{days_remaining} days** left before your weekly Access Key expires. Remember to renew your subscription!")
+            st.warning(f"⚠️ **Reminder:** Only **{days_remaining} days** left before your key expires.")
         else:
-            st.info(f"📆 **Subscription Active:** You have **{days_remaining} days** left before this week's access key rotates.")
+            st.info(f"📆 **Subscription Active:** **{days_remaining} days** left in this cycle.")
             
     st.markdown("---")
     
@@ -173,71 +220,27 @@ if access_granted:
         # Load original image
         input_image = Image.open(uploaded_file)
         
-        # ⚡ SPEED OPTIMIZATION: Resize giant images before background removal
+        # ⚡ SPEED OPTIMIZATION
         MAX_PROCESSING_DIM = 1000
         if max(input_image.size) > MAX_PROCESSING_DIM:
             input_image.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
         
-        # Create sidebar for editing controls
-        st.sidebar.header("🎨 Image Editing & Settings")
-        bg_color_hex = st.sidebar.color_picker("Choose Background Color", "#FFFFFF")
-        
-        size_option = st.sidebar.selectbox(
-            "Select Passport Size",
-            [
-                "2 x 2 inches (US / India)", 
-                "35 x 45 mm (UK / Europe / Kenya)",
-                "35 x 43 mm",
-                "prof size",
-                "Custom"
-            ]
-        )
-        
-        photo_width = 600
-        photo_height = 600
-        
-        if size_option == "2 x 2 inches (US / India)":
-            photo_width, photo_height = 600, 600
-        elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
-            photo_width, photo_height = 413, 531
-        elif size_option == "35 x 43 mm":
-            photo_width, photo_height = 413, 508
-        elif size_option == "prof size":
-            photo_width, photo_height = 413, 531
-        elif size_option == "Custom":
-            col_w, col_h = st.sidebar.columns(2)
-            custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
-            custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
-            
-            if custom_w is not None and custom_h is not None:
-                if int(custom_w) > 0 and int(custom_h) > 0:
-                    photo_width = int(custom_w)
-                    photo_height = int(custom_h)
-
-        photo_width = max(100, photo_width)
-        photo_height = max(100, photo_height)
-
-        st.sidebar.markdown("---")
-        st.sidebar.subheader("🔢 Layout Settings")
-        num_copies = st.sidebar.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
-
-        st.sidebar.markdown("### Image Adjustments")
-        brightness = st.sidebar.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
-        contrast = st.sidebar.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
-        saturation = st.sidebar.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
-
         # --- Processing Engine ---
         with st.spinner("⚡ Removing background & adjusting colors..."):
             no_bg_image = remove(input_image).convert("RGBA")
             
-            # ✨ FIXED ANTI-CROP ENGINE: Preserves long hair extensions/shoulders completely
+            # ✨ ANTI-CROP ENGINE
             subject_copy = no_bg_image.copy()
             subject_copy.thumbnail((photo_width, photo_height), Image.Resampling.LANCZOS)
             
-            # Center the subject on a solid background layer so nothing gets cut off
+            # Create the solid background canvas
             solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
+            
+            # 📐 POSITIONAL ALIGNMENT: 
+            # Center horizontally, paste flush against the BOTTOM margin
             offset_x = (photo_width - subject_copy.width) // 2
-            offset_y = (photo_height - subject_copy.height) // 2
+            offset_y = photo_height - subject_copy.height  # Sits on the bottom line!
+            
             solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
             combined_image = solid_bg.convert("RGB")
             
