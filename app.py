@@ -17,7 +17,7 @@ A4_HEIGHT = 3508
 st.title("Express Passport Maker 📸")
 
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
-MASTER_SECRET = "my_ultra_secret_master_key_123"
+MASTER_SECRET = "profnabari"
 
 def generate_key_for_week(week_num):
     current_year = datetime.now().year
