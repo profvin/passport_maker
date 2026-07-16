@@ -172,14 +172,37 @@ if access_granted:
         if max(input_image.size) > MAX_PROCESSING_DIM:
             input_image.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
         
-        # --- 🎨 MAIN SCREEN CONTROL PANEL (No Sidebar!) ---
+        # --- 🎨 MAIN SCREEN CONTROL PANEL ---
         st.markdown("### 🎨 Image Editing & Layout Controls")
         
-        # Layout columns for controls so they don't take up too much vertical space
         ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
         
         with ctrl_col1:
-            bg_color_hex = st.color_picker("Choose Background Color", "#FFFFFF")
+            # ✨ FAIL-SAFE BACKGROUND COLOR INPUTS (No Popup Blockers!)
+            bg_preset = st.selectbox(
+                "Choose Background Color",
+                ["White", "Light Blue", "Light Grey", "Red", "Blue", "Custom HEX"]
+            )
+            
+            if bg_preset == "White":
+                bg_color_hex = "#FFFFFF"
+            elif bg_preset == "Light Blue":
+                bg_color_hex = "#ADD8E6"
+            elif bg_preset == "Light Grey":
+                bg_color_hex = "#D3D3D3"
+            elif bg_preset == "Red":
+                bg_color_hex = "#FF0000"
+            elif bg_preset == "Blue":
+                bg_color_hex = "#0000FF"
+            else:
+                # Allows manually typing a HEX code safely
+                bg_color_hex = st.text_input("Enter Custom Hex Code", value="#FFFFFF", placeholder="#FFFFFF")
+                # Quick sanitization to make sure it is a valid hex color
+                if not bg_color_hex.startswith("#"):
+                    bg_color_hex = f"#{bg_color_hex}"
+                if len(bg_color_hex) != 7:
+                    bg_color_hex = "#FFFFFF"
+
             size_option = st.selectbox(
                 "Select Passport Size",
                 [
