@@ -20,7 +20,7 @@ if uploaded_file is not None:
     # Load original image
     input_image = Image.open(uploaded_file)
     
-    # Create sidebar for all your editing controls
+    # Create sidebar for editing controls
     st.sidebar.header("🎨 Image Editing & Settings")
     
     # 1. Background Color Picker
@@ -46,11 +46,9 @@ if uploaded_file is not None:
         custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600)
         photo_width, photo_height = int(custom_w), int(custom_h)
 
-    # 3. Ratio Lock & Aspect Crop Options
+    # 3. Layout Settings
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔢 Layout Settings")
-    
-    # Number of copies control
     num_copies = st.sidebar.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
 
     # 4. Image Enhancements (Sliders)
@@ -64,21 +62,22 @@ if uploaded_file is not None:
         # 1. Remove background (returns transparent RGBA)
         no_bg_image = remove(input_image).convert("RGBA")
         
-        # 2. Create solid background with selected color
-        solid_bg = Image.new("RGBA", no_bg_image.size, bg_color_hex)
+        # 2. Fit the subject image to the passport dimensions (Ratio Lock)
+        fitted_subject = ImageOps.fit(no_bg_image, (photo_width, photo_height), Image.Resampling.LANCZOS)
         
-        # Combine transparent image over the solid colored background
-        combined_image = Image.alpha_composite(solid_bg, no_bg_image).convert("RGB")
+        # 3. Create solid background canvas with selected color
+        solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
         
-        # 3. Apply Brightness
+        # Combine transparent subject over the background
+        combined_image = Image.alpha_composite(solid_bg, fitted_subject).convert("RGB")
+        
+        # 4. Apply adjustments (Brightness, Contrast, Saturation)
         enhancer = ImageEnhance.Brightness(combined_image)
         combined_image = enhancer.enhance(brightness)
         
-        # 4. Apply Contrast
         enhancer = ImageEnhance.Contrast(combined_image)
         combined_image = enhancer.enhance(contrast)
         
-        # 5. Apply Saturation
         enhancer = ImageEnhance.Color(combined_image)
         combined_image = enhancer.enhance(saturation)
 
@@ -87,9 +86,7 @@ if uploaded_file is not None:
     
     with col1:
         st.write("### 👤 Single Passport Preview")
-        # Ratio Lock: Automatically crops and fits image to dimensions without stretching
-        preview_photo = ImageOps.fit(combined_image, (photo_width, photo_height), Image.Resampling.LANCZOS)
-        st.image(preview_photo, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", use_container_width=True)
+        st.image(combined_image, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", width="stretch")
         
     with col2:
         st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
@@ -102,11 +99,11 @@ if uploaded_file is not None:
         margin_y = 200
         gap = 80
         
-        # Calculate how many columns and rows can physically fit on A4
+        # Calculate grid parameters
         cols_count = (A4_WIDTH - (2 * margin_x)) // (photo_width + gap)
         rows_count = (A4_HEIGHT - (2 * margin_y)) // (photo_height + gap)
         
-        # Render the grid, stopping once we hit the desired number of copies
+        # Render the copies on the A4 canvas
         copies_pasted = 0
         for row in range(int(rows_count)):
             for col in range(int(cols_count)):
@@ -114,12 +111,12 @@ if uploaded_file is not None:
                     break
                 x = margin_x + col * (photo_width + gap)
                 y = margin_y + row * (photo_height + gap)
-                a4_canvas.paste(preview_photo, (x, y))
+                a4_canvas.paste(combined_image, (x, y))
                 copies_pasted += 1
             if copies_pasted >= num_copies:
                 break
                 
-        st.image(a4_canvas, caption="Preview of full A4 page", use_container_width=True)
+        st.image(a4_canvas, caption="Preview of full A4 page", width="stretch")
 
     # --- Direct Print Trigger Code ---
     buffered = io.BytesIO()
@@ -184,4 +181,5 @@ if uploaded_file is not None:
     </button>
     """
     
-    st.components.v1.html(print_html, height=120)
+    # Replaced deprecated st.components.v1.html with st.iframe
+    st.iframe(print_html, height=120)
