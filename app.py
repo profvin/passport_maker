@@ -10,14 +10,33 @@ from datetime import datetime
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="Express Passport Maker", layout="wide")
 
-# --- A4 Canvas Dimensions (300 DPI) ---
-A4_WIDTH = 2480
-A4_HEIGHT = 3508
-
-st.title("Express Passport Maker 📸")
-# --- HIDE STREAMLIT BRANDING & MENUS ---
-hide_streamlit_style = """
+# --- FORCE LIGHT MODE VIA CSS (Overrides stuck Dark Mode browser settings) ---
+st.markdown(
+    """
     <style>
+    /* Force canvas and main app backgrounds to light */
+    .stApp, html, body, [data-testid="stAppViewContainer"] {
+        background-color: #FFFFFF !important;
+        color: #31333F !important;
+    }
+    [data-testid="stHeader"] {
+        background-color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #F0F2F6 !important;
+    }
+    
+    /* Make sure text elements stay sharp and highly readable */
+    h1, h2, h3, p, span, label, .stMarkdown {
+        color: #31333F !important;
+    }
+    
+    /* Ensure input fields have proper visibility */
+    input, textarea, [data-testid="stTextInput"] {
+        color: #31333F !important;
+        background-color: #FFFFFF !important;
+    }
+    
     /* Hides the top header bar (including Deploy button) */
     header {visibility: hidden;}
     
@@ -27,11 +46,24 @@ hide_streamlit_style = """
     /* Hides the "Made with Streamlit" footer */
     footer {visibility: hidden;}
     </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
+
+# --- A4 Canvas Dimensions (300 DPI) ---
+A4_WIDTH = 2480
+A4_HEIGHT = 3508
+
+st.title("Express Passport Maker 📸")
+
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
-# TO THIS:
-MASTER_SECRET = st.secrets.get("MASTER_SECRET","local_test_key")
+# Securely retrieve secret or fall back to default for local development
+MASTER_SECRET = st.secrets.get("MASTER_SECRET")
+secret_fallback_active = False
+
+if not MASTER_SECRET:
+    MASTER_SECRET = "local_test_key"
+    secret_fallback_active = True
 
 def generate_key_for_week(week_num):
     current_year = datetime.now().year
@@ -81,9 +113,14 @@ def get_days_left_in_cycle():
         days_left = last_day - day
         
     return days_left
+
 # --- 🔓 ADMIN EXEMPTION CHECK ---
 # Checking if you accessed via the admin link: your-url/?admin=true
 is_admin_bypass = "admin" in st.query_params and st.query_params["admin"] == "true"
+
+# Show secret diagnostic warning only to admin to ensure client interface is pristine
+if is_admin_bypass and secret_fallback_active:
+    st.sidebar.warning("⚠️ Secrets Loading: 'MASTER_SECRET' is using local_test_key")
 
 # --- 🔑 LOGIN GATE ---
 user_password = ""
