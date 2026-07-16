@@ -48,17 +48,28 @@ else:
 
 allowed_keys = [current_key, next_key]
 
-# --- 🔑 LOGIN GATE ---
-with st.container():
-    st.write("### 🔑 Client Portal Access")
-    user_password = st.text_input(
-        "Enter your Active Weekly Access Key to unlock the editor:", 
-        type="password", 
-        placeholder="Contact your system administrator to get your weekly key"
-    )
+# --- 🔓 ADMIN EXEMPTION CHECK ---
+# Checking if you accessed via the admin link: your-url/?admin=true
+is_admin_bypass = "admin" in st.query_params and st.query_params["admin"] == "true"
 
-if user_password in allowed_keys:
-    st.success("✅ Access Granted! Editor unlocked.")
+# --- 🔑 LOGIN GATE ---
+user_password = ""
+if is_admin_bypass:
+    st.sidebar.success("⚡ Admin Mode Active: Password Bypass Enabled")
+    access_granted = True
+else:
+    with st.container():
+        st.write("### 🔑 Client Portal Access")
+        user_password = st.text_input(
+            "Enter your Active Weekly Access Key to unlock the editor:", 
+            type="password", 
+            placeholder="Contact your system administrator to get your weekly key"
+        )
+    access_granted = user_password in allowed_keys
+
+if access_granted:
+    if not is_admin_bypass:
+        st.success("✅ Access Granted! Editor unlocked.")
     st.markdown("---")
     
     # --- Step 1: File Uploader ---
@@ -69,7 +80,6 @@ if user_password in allowed_keys:
         input_image = Image.open(uploaded_file)
         
         # ⚡ SPEED OPTIMIZATION: Resize giant images before background removal
-        # This speeds up processing on Streamlit Cloud by up to 5x!
         MAX_PROCESSING_DIM = 1000
         if max(input_image.size) > MAX_PROCESSING_DIM:
             input_image.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
@@ -125,10 +135,19 @@ if user_password in allowed_keys:
         # --- Processing Engine ---
         with st.spinner("⚡ Removing background & adjusting colors..."):
             no_bg_image = remove(input_image).convert("RGBA")
-            fitted_subject = ImageOps.fit(no_bg_image, (photo_width, photo_height), Image.Resampling.LANCZOS)
-            solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
-            combined_image = Image.alpha_composite(solid_bg, fitted_subject).convert("RGB")
             
+            # ✨ FIXED ANTI-CROP ENGINE: Preserves long hair extensions/shoulders completely
+            subject_copy = no_bg_image.copy()
+            subject_copy.thumbnail((photo_width, photo_height), Image.Resampling.LANCZOS)
+            
+            # Center the subject on a solid background layer so nothing gets cut off
+            solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
+            offset_x = (photo_width - subject_copy.width) // 2
+            offset_y = (photo_height - subject_copy.height) // 2
+            solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
+            combined_image = solid_bg.convert("RGB")
+            
+            # Apply adjustments
             enhancer = ImageEnhance.Brightness(combined_image)
             combined_image = enhancer.enhance(brightness)
             
@@ -186,7 +205,6 @@ if user_password in allowed_keys:
             action_col1, action_col2 = st.columns(2)
             
             with action_col1:
-                # 1. High-Quality Direct Download Button (Fail-Safe)
                 st.download_button(
                     label="💾 Download A4 JPEG File",
                     data=img_bytes,
@@ -196,7 +214,6 @@ if user_password in allowed_keys:
                 )
                 
             with action_col2:
-                # 2. Re-engineered Browser Print Frame with fixed heights
                 img_str = base64.b64encode(img_bytes).decode()
                 img_data_uri = f"data:image/jpeg;base64,{img_str}"
                 
@@ -243,7 +260,6 @@ if user_password in allowed_keys:
                 </body>
                 </html>
                 """
-                # Use st.components.v1.html with explicit height to guarantee it stays visible
                 components.html(print_html, height=60)
 
 else:
@@ -262,9 +278,7 @@ else:
         * **Save Time & Money:** Turn a 10-minute job into a 30-second print.
         """)
     with col_info2:
-        # Custom payment instructions HTML directly in Streamlit
         st.markdown("### 💳 How to Get Your Key")
-        
         whatsapp_link = "https://wa.me/254718269914?text=Hello%20Admin,%20I%20have%20sent%20my%20weekly%20subscription%20via%20M-Pesa.%20Here%20is%20my%20payment%20confirmation."
         
         payment_html = f"""
@@ -298,8 +312,7 @@ else:
         st.components.v1.html(payment_html, height=260)
 
 # --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
-# Check if "?admin=true" is in the URL path
-if "admin" in st.query_params and st.query_params["admin"] == "true":
+if is_admin_bypass:
     st.sidebar.markdown("---")
     with st.sidebar.expander("🛠️ Admin Portal (View Keys)", expanded=True):
         admin_input = st.text_input("Enter Master Secret Key to reveal passwords:", type="password")
