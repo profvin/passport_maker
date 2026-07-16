@@ -56,20 +56,6 @@ A4_HEIGHT = 3508
 
 st.title("Express Passport Maker 📸")
 
-# --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
-if is_admin_bypass:
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("🛠️ Admin Portal (Client Keys)", expanded=True):
-        st.success("⚡ Keys Generated Automatically!")
-        st.write("Copy and send these keys to your clients:")
-        
-        st.code(f"Week 1 Key: {PASSWORDS['week_1']}")
-        st.code(f"Week 2 Key: {PASSWORDS['week_2']}")
-        st.code(f"Week 3 Key: {PASSWORDS['week_3']}")
-        st.code(f"Week 4 Key: {PASSWORDS['week_4']}")
-        
-        st.info("💡 Hint: Keep your '?admin=true' link secret. Only you can see this box!")
-
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
 # Securely retrieve secret or fall back to default for local development
 MASTER_SECRET = st.secrets.get("MASTER_SECRET")
@@ -131,6 +117,18 @@ def get_days_left_in_cycle():
 # --- 🔓 ADMIN EXEMPTION CHECK ---
 # Checking if you accessed via the admin link: your-url/?admin=true
 is_admin_bypass = "admin" in st.query_params and st.query_params["admin"] == "true"
+
+# --- 🔐 HIDDEN ADMIN PORTAL (Main Screen Triggered) ---
+# Runs right after bypass state and keys are safely defined
+if is_admin_bypass:
+    with st.container():
+        st.success("⚡ Admin Mode Active: Client Keys Generated Automatically!")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.code(f"Week 1 Key:\n{PASSWORDS['week_1']}")
+        col2.code(f"Week 2 Key:\n{PASSWORDS['week_2']}")
+        col3.code(f"Week 3 Key:\n{PASSWORDS['week_3']}")
+        col4.code(f"Week 4 Key:\n{PASSWORDS['week_4']}")
+        st.markdown("---")
 
 # Show secret diagnostic warning only to admin to ensure client interface is pristine
 if is_admin_bypass and secret_fallback_active:
@@ -406,4 +404,3 @@ else:
         </div>
         """
         st.components.v1.html(payment_html, height=260)
-
