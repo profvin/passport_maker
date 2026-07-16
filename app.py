@@ -262,12 +262,40 @@ else:
         * **Save Time & Money:** Turn a 10-minute job into a 30-second print.
         """)
     with col_info2:
-        st.markdown("""
-        ### 💳 How to Get Your Key
-        1. Send your weekly subscription fee to the administrator.
-        2. Send a payment confirmation receipt over chat/WhatsApp.
-        3. Receive your active Access Key instantly!
-        """)
+        # Custom payment instructions HTML directly in Streamlit
+        st.markdown("### 💳 How to Get Your Key")
+        
+        whatsapp_link = "https://wa.me/254718269914?text=Hello%20Admin,%20I%20have%20sent%20my%20weekly%20subscription%20via%20M-Pesa.%20Here%20is%20my%20payment%20confirmation."
+        
+        payment_html = f"""
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0; font-family: sans-serif;">
+            <p style="margin-top: 0; font-size: 0.95rem; color: #444;">1. Send your weekly subscription fee to the administrator via:</p>
+            <div style="background-color: #e8f5e9; padding: 10px; border-radius: 6px; border: 1px solid #c8eedb; text-align: center; margin-bottom: 12px;">
+                <span style="font-size: 0.8rem; color: #2e7d32; font-weight: bold; text-transform: uppercase;">M-Pesa Buy Goods Till</span>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #1b5e20;">3136870</div>
+            </div>
+            <p style="font-size: 0.95rem; color: #444; margin-bottom: 15px;">2. Click below to submit your payment confirmation screenshot via WhatsApp to <strong>0718269914</strong>:</p>
+            <div style="text-align: center;">
+                <a href="{whatsapp_link}" target="_blank" style="
+                    display: inline-block;
+                    background-color: #25D366;
+                    color: white;
+                    padding: 8px 16px;
+                    text-decoration: none;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    font-size: 0.9rem;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">
+                    💬 Send Receipt on WhatsApp
+                </a>
+            </div>
+            <p style="margin-top: 15px; margin-bottom: 0; font-weight: bold; color: #2e7d32; font-size: 0.95rem; text-align: center;">
+                Receive your active Access Key instantly!
+            </p>
+        </div>
+        """
+        st.components.v1.html(payment_html, height=260)
 
 # --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
 # Check if "?admin=true" is in the URL path
