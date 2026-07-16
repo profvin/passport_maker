@@ -7,11 +7,10 @@ from rembg import remove
 import hashlib
 from datetime import datetime
 
-# --- 1. SET PAGE CONFIG (Force expanded sidebar by default) ---
+# --- 1. SET PAGE CONFIG ---
 st.set_page_config(
     page_title="Express Passport Maker", 
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 # --- FORCE LIGHT MODE & VISIBILITY VIA CSS ---
@@ -25,9 +24,6 @@ st.markdown(
     }
     [data-testid="stHeader"] {
         background-color: #FFFFFF !important;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #F0F2F6 !important;
     }
     
     /* Make sure text elements stay sharp and highly readable */
@@ -132,12 +128,12 @@ if is_admin_bypass:
 
 # Show secret diagnostic warning only to admin
 if is_admin_bypass and secret_fallback_active:
-    st.sidebar.warning("⚠️ Secrets Loading: 'MASTER_SECRET' is using local_test_key")
+    st.warning("⚠️ Secrets Loading: 'MASTER_SECRET' is using local_test_key")
 
 # --- 🔑 LOGIN GATE ---
 user_password = ""
 if is_admin_bypass:
-    st.sidebar.success("⚡ Admin Mode Active: Password Bypass Enabled")
+    st.success("⚡ Admin Mode Active: Password Bypass Enabled")
     access_granted = True
 else:
     with st.container():
@@ -148,55 +144,6 @@ else:
             placeholder="Contact your system administrator to get your weekly key"
         )
     access_granted = user_password in allowed_keys
-
-# --- ALWAYS-VISIBLE SIDEBAR CONTROLS ---
-st.sidebar.header("🎨 Image Editing & Settings")
-bg_color_hex = st.sidebar.color_picker("Choose Background Color", "#FFFFFF")
-
-size_option = st.sidebar.selectbox(
-    "Select Passport Size",
-    [
-        "2 x 2 inches (US / India)", 
-        "35 x 45 mm (UK / Europe / Kenya)",
-        "35 x 43 mm",
-        "prof size",
-        "Custom"
-    ]
-)
-
-photo_width = 600
-photo_height = 600
-
-if size_option == "2 x 2 inches (US / India)":
-    photo_width, photo_height = 600, 600
-elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
-    photo_width, photo_height = 413, 531
-elif size_option == "35 x 43 mm":
-    photo_width, photo_height = 413, 508
-elif size_option == "prof size":
-    photo_width, photo_height = 413, 531
-elif size_option == "Custom":
-    col_w, col_h = st.sidebar.columns(2)
-    custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
-    custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
-    
-    if custom_w is not None and custom_h is not None:
-        if int(custom_w) > 0 and int(custom_h) > 0:
-            photo_width = int(custom_w)
-            photo_height = int(custom_h)
-
-photo_width = max(100, photo_width)
-photo_height = max(100, photo_height)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔢 Layout Settings")
-num_copies = st.sidebar.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
-
-st.sidebar.markdown("### Image Adjustments")
-brightness = st.sidebar.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
-contrast = st.sidebar.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
-saturation = st.sidebar.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
-
 
 # --- APPLICATION EXECUTION ---
 if access_granted:
@@ -225,6 +172,59 @@ if access_granted:
         if max(input_image.size) > MAX_PROCESSING_DIM:
             input_image.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
         
+        # --- 🎨 MAIN SCREEN CONTROL PANEL (No Sidebar!) ---
+        st.markdown("### 🎨 Image Editing & Layout Controls")
+        
+        # Layout columns for controls so they don't take up too much vertical space
+        ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
+        
+        with ctrl_col1:
+            bg_color_hex = st.color_picker("Choose Background Color", "#FFFFFF")
+            size_option = st.selectbox(
+                "Select Passport Size",
+                [
+                    "2 x 2 inches (US / India)", 
+                    "35 x 45 mm (UK / Europe / Kenya)",
+                    "35 x 43 mm",
+                    "prof size",
+                    "Custom"
+                ]
+            )
+            
+            photo_width = 600
+            photo_height = 600
+
+            if size_option == "2 x 2 inches (US / India)":
+                photo_width, photo_height = 600, 600
+            elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
+                photo_width, photo_height = 413, 531
+            elif size_option == "35 x 43 mm":
+                photo_width, photo_height = 413, 508
+            elif size_option == "prof size":
+                photo_width, photo_height = 413, 531
+            elif size_option == "Custom":
+                sub_col_w, sub_col_h = st.columns(2)
+                custom_w = sub_col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
+                custom_h = sub_col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
+                
+                if custom_w is not None and custom_h is not None:
+                    if int(custom_w) > 0 and int(custom_h) > 0:
+                        photo_width = int(custom_w)
+                        photo_height = int(custom_h)
+
+            photo_width = max(100, photo_width)
+            photo_height = max(100, photo_height)
+
+        with ctrl_col2:
+            num_copies = st.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
+            brightness = st.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
+            
+        with ctrl_col3:
+            contrast = st.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
+            saturation = st.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
+
+        st.markdown("---")
+
         # --- Processing Engine ---
         with st.spinner("⚡ Removing background & adjusting colors..."):
             no_bg_image = remove(input_image).convert("RGBA")
@@ -239,7 +239,7 @@ if access_granted:
             # 📐 POSITIONAL ALIGNMENT: 
             # Center horizontally, paste flush against the BOTTOM margin
             offset_x = (photo_width - subject_copy.width) // 2
-            offset_y = photo_height - subject_copy.height  # Sits on the bottom line!
+            offset_y = photo_height - subject_copy.height  # Sits completely on the bottom line!
             
             solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
             combined_image = solid_bg.convert("RGB")
