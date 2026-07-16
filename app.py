@@ -62,6 +62,25 @@ else:
 
 allowed_keys = [current_key, next_key]
 
+def get_days_left_in_cycle():
+    from calendar import monthrange
+    today = datetime.now()
+    day = today.day
+    year = today.year
+    month = today.month
+
+    if 1 <= day <= 7:
+        days_left = 7 - day
+    elif 8 <= day <= 14:
+        days_left = 14 - day
+    elif 15 <= day <= 21:
+        days_left = 21 - day
+    else:
+        # Week 4 goes to the last day of the month
+        _, last_day = monthrange(year, month)
+        days_left = last_day - day
+        
+    return days_left
 # --- 🔓 ADMIN EXEMPTION CHECK ---
 # Checking if you accessed via the admin link: your-url/?admin=true
 is_admin_bypass = "admin" in st.query_params and st.query_params["admin"] == "true"
@@ -84,6 +103,18 @@ else:
 if access_granted:
     if not is_admin_bypass:
         st.success("✅ Access Granted! Editor unlocked.")
+        
+        # 📆 Calculate days remaining in the active week
+        days_remaining = get_days_left_in_cycle()
+        
+        # Display the custom reminder banner
+        if days_remaining == 0:
+            st.warning("⚠️ **Reminder:** Your weekly Access Key expires **tonight at midnight**! Please renew your subscription to avoid losing access.")
+        elif days_remaining <= 2:
+            st.warning(f"⚠️ **Reminder:** Only **{days_remaining} days** left before your weekly Access Key expires. Remember to renew your subscription!")
+        else:
+            st.info(f"📆 **Subscription Active:** You have **{days_remaining} days** left before this week's access key rotates.")
+            
     st.markdown("---")
     
     # --- Step 1: File Uploader ---
