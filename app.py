@@ -15,7 +15,20 @@ A4_WIDTH = 2480
 A4_HEIGHT = 3508
 
 st.title("Express Passport Maker 📸")
-
+# --- HIDE STREAMLIT BRANDING & MENUS ---
+hide_streamlit_style = """
+    <style>
+    /* Hides the top header bar (including Deploy button) */
+    header {visibility: hidden;}
+    
+    /* Hides the main menu button (top right) */
+    #MainMenu {visibility: hidden;}
+    
+    /* Hides the "Made with Streamlit" footer */
+    footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
 # TO THIS:
 MASTER_SECRET = st.secrets.get("MASTER_SECRET","local_test_key")
