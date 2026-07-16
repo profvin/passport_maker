@@ -56,6 +56,20 @@ A4_HEIGHT = 3508
 
 st.title("Express Passport Maker 📸")
 
+# --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
+if is_admin_bypass:
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🛠️ Admin Portal (Client Keys)", expanded=True):
+        st.success("⚡ Keys Generated Automatically!")
+        st.write("Copy and send these keys to your clients:")
+        
+        st.code(f"Week 1 Key: {PASSWORDS['week_1']}")
+        st.code(f"Week 2 Key: {PASSWORDS['week_2']}")
+        st.code(f"Week 3 Key: {PASSWORDS['week_3']}")
+        st.code(f"Week 4 Key: {PASSWORDS['week_4']}")
+        
+        st.info("💡 Hint: Keep your '?admin=true' link secret. Only you can see this box!")
+
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
 # Securely retrieve secret or fall back to default for local development
 MASTER_SECRET = st.secrets.get("MASTER_SECRET")
@@ -393,16 +407,3 @@ else:
         """
         st.components.v1.html(payment_html, height=260)
 
-# --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
-if is_admin_bypass:
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("🛠️ Admin Portal (Client Keys)", expanded=True):
-        st.success("⚡ Keys Generated Automatically!")
-        st.write("Copy and send these keys to your clients:")
-        
-        st.code(f"Week 1 Key: {PASSWORDS['week_1']}")
-        st.code(f"Week 2 Key: {PASSWORDS['week_2']}")
-        st.code(f"Week 3 Key: {PASSWORDS['week_3']}")
-        st.code(f"Week 4 Key: {PASSWORDS['week_4']}")
-        
-        st.info("💡 Hint: Keep your '?admin=true' link secret. Only you can see this box!")
