@@ -5,7 +5,7 @@ import base64
 from rembg import remove
 
 # Set page configuration
-st.set_config = st.set_page_config(page_title="Express Passport Maker", layout="wide")
+st.set_page_config(page_title="Express Passport Maker", layout="wide")
 
 # --- A4 Canvas Dimensions (300 DPI) ---
 A4_WIDTH = 2480
@@ -37,17 +37,24 @@ if uploaded_file is not None:
     )
     
     if size_option == "2 x 2 inches (US / India)":
-        photo_width, photo_height = 600, 600  # 300 DPI equivalent
+        photo_width, photo_height = 600, 600  # 300 DPI equivalent (1:1 ratio)
     elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
-        photo_width, photo_height = 413, 531  # 300 DPI equivalent
+        photo_width, photo_height = 413, 531  # 300 DPI equivalent (approx 1:1.28 ratio)
     else:
         col_w, col_h = st.sidebar.columns(2)
         custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600)
         custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600)
         photo_width, photo_height = int(custom_w), int(custom_h)
 
-    # 3. Image Enhancements (Sliders)
-    st.sidebar.markdown("### Adjustments")
+    # 3. Ratio Lock & Aspect Crop Options
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔢 Layout Settings")
+    
+    # Number of copies control
+    num_copies = st.sidebar.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
+
+    # 4. Image Enhancements (Sliders)
+    st.sidebar.markdown("### Image Adjustments")
     brightness = st.sidebar.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
     contrast = st.sidebar.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
     saturation = st.sidebar.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
@@ -80,17 +87,16 @@ if uploaded_file is not None:
     
     with col1:
         st.write("### 👤 Single Passport Preview")
-        # Resize to selected passport size for preview
-        preview_photo = combined_image.resize((photo_width, photo_height))
-        st.image(preview_photo, caption=f"Size: {photo_width}x{photo_height} px", use_container_width=True)
+        # Ratio Lock: Automatically crops and fits image to dimensions without stretching
+        preview_photo = ImageOps.fit(combined_image, (photo_width, photo_height), Image.Resampling.LANCZOS)
+        st.image(preview_photo, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", use_container_width=True)
         
     with col2:
-        st.write("### 🖨️ Generated A4 Print Sheet")
+        st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
         
         # Create blank A4 white canvas
         a4_canvas = Image.new("RGB", (A4_WIDTH, A4_HEIGHT), "white")
         
-        # Dynamically calculate spacing based on selected size
         # Margin and spacing configuration
         margin_x = 150
         margin_y = 200
@@ -100,12 +106,18 @@ if uploaded_file is not None:
         cols_count = (A4_WIDTH - (2 * margin_x)) // (photo_width + gap)
         rows_count = (A4_HEIGHT - (2 * margin_y)) // (photo_height + gap)
         
-        # Render the grid
+        # Render the grid, stopping once we hit the desired number of copies
+        copies_pasted = 0
         for row in range(int(rows_count)):
             for col in range(int(cols_count)):
+                if copies_pasted >= num_copies:
+                    break
                 x = margin_x + col * (photo_width + gap)
                 y = margin_y + row * (photo_height + gap)
                 a4_canvas.paste(preview_photo, (x, y))
+                copies_pasted += 1
+            if copies_pasted >= num_copies:
+                break
                 
         st.image(a4_canvas, caption="Preview of full A4 page", use_container_width=True)
 
