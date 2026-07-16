@@ -396,12 +396,13 @@ else:
 # --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
 if is_admin_bypass:
     st.sidebar.markdown("---")
-    with st.sidebar.expander("🛠️ Admin Portal (View Keys)", expanded=True):
-        admin_input = st.text_input("Enter Master Secret Key to reveal passwords:", type="password")
-        if admin_input == MASTER_SECRET:
-            st.success("Admin verified!")
-            st.write("**This Month's Generated Keys:**")
-            for week, pwd in PASSWORDS.items():
-                st.code(f"{week}: {pwd}")
-        elif admin_input != "":
-            st.error("Incorrect Master Secret Key.")
+    with st.sidebar.expander("🛠️ Admin Portal (Client Keys)", expanded=True):
+        st.success("⚡ Keys Generated Automatically!")
+        st.write("Copy and send these keys to your clients:")
+        
+        st.code(f"Week 1 Key: {PASSWORDS['week_1']}")
+        st.code(f"Week 2 Key: {PASSWORDS['week_2']}")
+        st.code(f"Week 3 Key: {PASSWORDS['week_3']}")
+        st.code(f"Week 4 Key: {PASSWORDS['week_4']}")
+        
+        st.info("💡 Hint: Keep your '?admin=true' link secret. Only you can see this box!")
