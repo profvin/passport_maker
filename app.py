@@ -18,7 +18,7 @@ st.title("Express Passport Maker 📸")
 
 # --- 🔑 THE MATHEMATICAL PASSWORD GENERATOR ---
 # TO THIS:
-MASTER_SECRET = st.secrets.get("MASTER_SECRET""local_test_key")
+MASTER_SECRET = st.secrets.get("MASTER_SECRET","local_test_key")
 
 def generate_key_for_week(week_num):
     current_year = datetime.now().year
