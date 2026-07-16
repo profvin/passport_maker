@@ -269,14 +269,16 @@ else:
         3. Receive your active Access Key instantly!
         """)
 
-# --- 🔐 HIDDEN ADMIN PORTAL ---
-st.sidebar.markdown("---")
-with st.sidebar.expander("🛠️ Admin Portal (View Keys)"):
-    admin_input = st.text_input("Enter Master Secret Key to reveal passwords:", type="password")
-    if admin_input == MASTER_SECRET:
-        st.success("Admin verified!")
-        st.write("**This Month's Generated Keys:**")
-        for week, pwd in PASSWORDS.items():
-            st.code(f"{week}: {pwd}")
-    elif admin_input != "":
-        st.error("Incorrect Master Secret Key.")
+# --- 🔐 HIDDEN ADMIN PORTAL (URL Triggered) ---
+# Check if "?admin=true" is in the URL path
+if "admin" in st.query_params and st.query_params["admin"] == "true":
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🛠️ Admin Portal (View Keys)", expanded=True):
+        admin_input = st.text_input("Enter Master Secret Key to reveal passwords:", type="password")
+        if admin_input == MASTER_SECRET:
+            st.success("Admin verified!")
+            st.write("**This Month's Generated Keys:**")
+            for week, pwd in PASSWORDS.items():
+                st.code(f"{week}: {pwd}")
+        elif admin_input != "":
+            st.error("Incorrect Master Secret Key.")
