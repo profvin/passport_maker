@@ -178,30 +178,83 @@ if access_granted:
         ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
         
         with ctrl_col1:
-            # ✨ FAIL-SAFE BACKGROUND COLOR INPUTS (No Popup Blockers!)
+            # Dropdown options for color selections
             bg_preset = st.selectbox(
-                "Choose Background Color",
-                ["White", "Light Blue", "Light Grey", "Red", "Blue", "Custom HEX"]
+                "Choose Background Color Preset",
+                ["White", "Light Blue", "Light Grey", "Sky Blue", "Royal Blue", "Red", "Custom HEX"]
             )
             
-            if bg_preset == "White":
-                bg_color_hex = "#FFFFFF"
-            elif bg_preset == "Light Blue":
-                bg_color_hex = "#ADD8E6"
-            elif bg_preset == "Light Grey":
-                bg_color_hex = "#D3D3D3"
-            elif bg_preset == "Red":
-                bg_color_hex = "#FF0000"
-            elif bg_preset == "Blue":
-                bg_color_hex = "#0000FF"
+            # Map presets to hex codes
+            preset_mapping = {
+                "White": "#FFFFFF",
+                "Light Blue": "#ADD8E6",
+                "Light Grey": "#D3D3D3",
+                "Sky Blue": "#87CEEB",
+                "Royal Blue": "#4169E1",
+                "Red": "#FF0000"
+            }
+            
+            initial_hex = preset_mapping.get(bg_preset, "#FFFFFF")
+            
+            # Text box for customized hex input
+            hex_input = st.text_input(
+                "Custom HEX Color Code (e.g. #FFFFFF)", 
+                value=initial_hex, 
+                help="Type any standard hex code. Don't worry, you can also use the color pallete grid below!"
+            )
+            
+            # Clean up the hex text input to be valid
+            if not hex_input.startswith("#"):
+                hex_input = f"#{hex_input}"
+            if len(hex_input) != 7:
+                hex_input = "#FFFFFF"
+                
+            # --- 🎨 EXPLICIT VISUAL COLOR PALETTE (No Blockers!) ---
+            st.markdown("<p style='font-size:0.85rem; font-weight:bold; margin-bottom:5px;'>Or select from this Interactive Studio Palette:</p>", unsafe_allow_html=True)
+            
+            # A rich collection of studio-standard portrait backgrounds
+            palette_colors = [
+                ("#FFFFFF", "White"), ("#ADD8E6", "Lt Blue"), ("#D3D3D3", "Lt Grey"), 
+                ("#87CEEB", "Sky Blue"), ("#4169E1", "Royal Blue"), ("#000080", "Navy"),
+                ("#FF0000", "Red"), ("#FFD700", "Gold"), ("#008000", "Green"),
+                ("#F4F4F4", "Chalk"), ("#E6E6FA", "Lavender"), ("#FFF0F5", "Lavender Blush"),
+                ("#FFE4E1", "Misty Rose"), ("#F5F5DC", "Beige"), ("#F0F8FF", "Alice Blue"),
+                ("#333333", "Charcoal"), ("#000000", "Black"), ("#4B0082", "Indigo")
+            ]
+            
+            # Render visual grid buttons
+            cols = st.columns(6)
+            chosen_palette_color = None
+            
+            for idx, (hex_code, label) in enumerate(palette_colors):
+                col_target = cols[idx % 6]
+                with col_target:
+                    # Renders a colored block button
+                    if st.button("", key=f"color_btn_{idx}", help=f"Click to select {label} ({hex_code})"):
+                        chosen_palette_color = hex_code
+                        
+                    # Visual representation of color circle/box
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: {hex_code}; 
+                            width: 100%; 
+                            height: 15px; 
+                            border: 1px solid #ccc; 
+                            border-radius: 4px; 
+                            margin-top: -15px;
+                            margin-bottom: 10px;
+                        "></div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
+            
+            # If a visual block is clicked, override the final hex color output
+            if chosen_palette_color:
+                bg_color_hex = chosen_palette_color
+                st.success(f"Selected color: {bg_color_hex}")
             else:
-                # Allows manually typing a HEX code safely
-                bg_color_hex = st.text_input("Enter Custom Hex Code", value="#FFFFFF", placeholder="#FFFFFF")
-                # Quick sanitization to make sure it is a valid hex color
-                if not bg_color_hex.startswith("#"):
-                    bg_color_hex = f"#{bg_color_hex}"
-                if len(bg_color_hex) != 7:
-                    bg_color_hex = "#FFFFFF"
+                bg_color_hex = hex_input
 
             size_option = st.selectbox(
                 "Select Passport Size",
