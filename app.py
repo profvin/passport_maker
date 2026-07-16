@@ -36,15 +36,22 @@ if uploaded_file is not None:
         ]
     )
     
+    # Safely initialize dimensions
+    photo_width, photo_height = 600, 600
+    
     if size_option == "2 x 2 inches (US / India)":
         photo_width, photo_height = 600, 600  # 300 DPI equivalent (1:1 ratio)
     elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
         photo_width, photo_height = 413, 531  # 300 DPI equivalent (approx 1:1.28 ratio)
-    else:
+    elif size_option == "Custom":
         col_w, col_h = st.sidebar.columns(2)
-        custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600)
-        custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600)
-        photo_width, photo_height = int(custom_w), int(custom_h)
+        # Use a safe default value (600) and step=10 to keep it robust
+        custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
+        custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
+        
+        # Ensure dimensions are never zero or negative
+        if custom_w > 0 and custom_h > 0:
+            photo_width, photo_height = int(custom_w), int(custom_h)
 
     # 3. Layout Settings
     st.sidebar.markdown("---")
@@ -62,11 +69,13 @@ if uploaded_file is not None:
         # 1. Remove background (returns transparent RGBA)
         no_bg_image = remove(input_image).convert("RGBA")
         
-        # 2. Fit the subject image to the passport dimensions (Ratio Lock)
-        fitted_subject = ImageOps.fit(no_bg_image, (photo_width, photo_height), Image.Resampling.LANCZOS)
+        # 2. Fit the subject image to the passport dimensions (Ratio Lock) with safety bounds
+        safe_width = max(100, photo_width)
+        safe_height = max(100, photo_height)
+        fitted_subject = ImageOps.fit(no_bg_image, (safe_width, safe_height), Image.Resampling.LANCZOS)
         
         # 3. Create solid background canvas with selected color
-        solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
+        solid_bg = Image.new("RGBA", (safe_width, safe_height), bg_color_hex)
         
         # Combine transparent subject over the background
         combined_image = Image.alpha_composite(solid_bg, fitted_subject).convert("RGB")
@@ -86,7 +95,7 @@ if uploaded_file is not None:
     
     with col1:
         st.write("### 👤 Single Passport Preview")
-        st.image(combined_image, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", width="stretch")
+        st.image(combined_image, caption=f"Aspect ratio locked to {safe_width}x{safe_height}px", width="stretch")
         
     with col2:
         st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
@@ -99,18 +108,24 @@ if uploaded_file is not None:
         margin_y = 200
         gap = 80
         
-        # Calculate grid parameters
-        cols_count = (A4_WIDTH - (2 * margin_x)) // (photo_width + gap)
-        rows_count = (A4_HEIGHT - (2 * margin_y)) // (photo_height + gap)
+        # Prevent division by zero during grid calculation
+        div_w = safe_width + gap
+        div_h = safe_height + gap
         
+        if div_w > 0 and div_h > 0:
+            cols_count = (A4_WIDTH - (2 * margin_x)) // div_w
+            rows_count = (A4_HEIGHT - (2 * margin_y)) // div_h
+        else:
+            cols_count, rows_count = 1, 1
+            
         # Render the copies on the A4 canvas
         copies_pasted = 0
         for row in range(int(rows_count)):
             for col in range(int(cols_count)):
                 if copies_pasted >= num_copies:
                     break
-                x = margin_x + col * (photo_width + gap)
-                y = margin_y + row * (photo_height + gap)
+                x = margin_x + col * (safe_width + gap)
+                y = margin_y + row * (safe_height + gap)
                 a4_canvas.paste(combined_image, (x, y))
                 copies_pasted += 1
             if copies_pasted >= num_copies:
@@ -181,5 +196,8 @@ if uploaded_file is not None:
     </button>
     """
     
-    # Replaced deprecated st.components.v1.html with st.iframe
-    st.iframe(print_html, height=120)
+    try:
+        st.iframe(print_html, height=120)
+    except AttributeError:
+        import streamlit.components.v1 as components
+        components.html(print_html, height=120)
