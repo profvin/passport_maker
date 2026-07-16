@@ -26,17 +26,19 @@ if uploaded_file is not None:
     # 1. Background Color Picker
     bg_color_hex = st.sidebar.color_picker("Choose Background Color", "#FFFFFF")
     
-    # 2. Image Size Selection
+    # 2. Image Size Selection (Added 35x43mm and prof size)
     size_option = st.sidebar.selectbox(
         "Select Passport Size",
         [
             "2 x 2 inches (US / India)", 
-            "35 x 45 mm (UK / Europe / Kenya)", 
+            "35 x 45 mm (UK / Europe / Kenya)",
+            "35 x 43 mm",
+            "prof size",
             "Custom"
         ]
     )
     
-    # Set default values
+    # Fallback default values
     photo_width = 600
     photo_height = 600
     
@@ -44,15 +46,30 @@ if uploaded_file is not None:
         photo_width, photo_height = 600, 600
     elif size_option == "35 x 45 mm (UK / Europe / Kenya)":
         photo_width, photo_height = 413, 531
+    elif size_option == "35 x 43 mm":
+        photo_width, photo_height = 413, 508  # 300 DPI equivalent for 35x43mm
+    elif size_option == "prof size":
+        photo_width, photo_height = 413, 531  # Default optimal setting
     elif size_option == "Custom":
         col_w, col_h = st.sidebar.columns(2)
+        
         custom_w = col_w.number_input("Width (px)", min_value=100, max_value=1000, value=600, step=10)
         custom_h = col_h.number_input("Height (px)", min_value=100, max_value=1000, value=600, step=10)
         
-        # Ensure values are loaded and are valid integers before assigning
-        if custom_w and custom_h:
-            photo_width = int(custom_w)
-            photo_height = int(custom_h)
+        # STRICT CRASH-PROOF VALIDATION:
+        # If Streamlit is still loading the inputs, or if they are None/0, fallback to 600
+        if custom_w is not None and custom_h is not None:
+            if int(custom_w) > 0 and int(custom_h) > 0:
+                photo_width = int(custom_w)
+                photo_height = int(custom_h)
+            else:
+                photo_width, photo_height = 600, 600
+        else:
+            photo_width, photo_height = 600, 600
+
+    # Ensure width/height never drop to 0 or negative under any circumstance
+    photo_width = max(100, photo_width)
+    photo_height = max(100, photo_height)
 
     # 3. Layout Settings
     st.sidebar.markdown("---")
@@ -94,7 +111,7 @@ if uploaded_file is not None:
     
     with col1:
         st.write("### 👤 Single Passport Preview")
-        st.image(combined_image, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", width="stretch")
+        st.image(combined_image, caption=f"Aspect ratio locked to {photo_width}x{photo_height}px", use_container_width=True)
         
     with col2:
         st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
@@ -107,9 +124,15 @@ if uploaded_file is not None:
         margin_y = 200
         gap = 80
         
-        # Calculate grid parameters safely
-        cols_count = (A4_WIDTH - (2 * margin_x)) // (photo_width + gap)
-        rows_count = (A4_HEIGHT - (2 * margin_y)) // (photo_height + gap)
+        # Calculate grid parameters safely (preventing division by zero)
+        step_w = photo_width + gap
+        step_h = photo_height + gap
+        
+        if step_w > 0 and step_h > 0:
+            cols_count = (A4_WIDTH - (2 * margin_x)) // step_w
+            rows_count = (A4_HEIGHT - (2 * margin_y)) // step_h
+        else:
+            cols_count, rows_count = 1, 1
         
         # Render the copies on the A4 canvas
         copies_pasted = 0
@@ -117,14 +140,14 @@ if uploaded_file is not None:
             for col in range(int(cols_count)):
                 if copies_pasted >= num_copies:
                     break
-                x = margin_x + col * (photo_width + gap)
-                y = margin_y + row * (photo_height + gap)
+                x = margin_x + col * step_w
+                y = margin_y + row * step_h
                 a4_canvas.paste(combined_image, (x, y))
                 copies_pasted += 1
             if copies_pasted >= num_copies:
                 break
                 
-        st.image(a4_canvas, caption="Preview of full A4 page", width="stretch")
+        st.image(a4_canvas, caption="Preview of full A4 page", use_container_width=True)
 
     # --- Direct Print Trigger Code ---
     buffered = io.BytesIO()
