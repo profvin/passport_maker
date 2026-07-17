@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from PIL import Image, ImageEnhance, ImageOps
 import io
 import base64
@@ -181,7 +180,6 @@ if access_granted:
         for file in uploaded_files:
             try:
                 img = Image.open(file)
-                # Keep original transparency channel settings clean, drop corrupt ICC profiles
                 img = ImageOps.exif_transpose(img)
                 img = img.convert("RGBA")
                 
@@ -199,13 +197,11 @@ if access_granted:
         ctrl_col1, ctrl_col2, ctrl_col3 = st.columns(3)
         
         with ctrl_col1:
-            # Dropdown options for color selections
             bg_preset = st.selectbox(
                 "Choose Background Color Preset",
                 ["White", "Light Blue", "Light Grey", "Sky Blue", "Royal Blue", "Red", "Custom HEX"]
             )
             
-            # Map presets to hex codes
             preset_mapping = {
                 "White": "#FFFFFF",
                 "Light Blue": "#ADD8E6",
@@ -217,7 +213,6 @@ if access_granted:
             
             initial_hex = preset_mapping.get(bg_preset, "#FFFFFF")
             
-            # Text box for customized hex input
             hex_input = st.text_input(
                 "Custom HEX Color Code (e.g. #FFFFFF)", 
                 value=initial_hex, 
@@ -229,7 +224,6 @@ if access_granted:
             if len(hex_input) != 7:
                 hex_input = "#FFFFFF"
                 
-            # --- 🎨 EXPLICIT VISUAL COLOR PALETTE ---
             st.markdown("<p style='font-size:0.85rem; font-weight:bold; margin-bottom:5px;'>Or select from this Interactive Studio Palette:</p>", unsafe_allow_html=True)
             
             palette_colors = [
@@ -312,7 +306,6 @@ if access_granted:
             contrast = st.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
             
         with ctrl_col3:
-            # --- 🛠️ DYNAMIC POSITIONING & SIZING CONTROLS ---
             st.markdown("**👤 Subject Nudging Controls**")
             subject_scale = st.slider(
                 "Subject Scale % (Zoom)", 
@@ -342,7 +335,6 @@ if access_granted:
             hair_safe_session = new_session(model_name="u2net_human_seg")
             
             for idx, img in enumerate(input_images):
-                # Run background removal
                 no_bg_image = remove(
                     img,
                     session=hair_safe_session,
@@ -352,29 +344,21 @@ if access_granted:
                     alpha_matting_erode_size=2
                 ).convert("RGBA")
                 
-                # --- 📐 RE-ENGINEERED SMART NUDGING SCALE ENGINE ---
                 orig_w, orig_h = no_bg_image.size
                 aspect_ratio = orig_h / orig_w
                 
-                # Base scale fills the width completely first (ensuring zero side gaps)
                 base_w = photo_width
                 base_h = int(photo_width * aspect_ratio)
                 
-                # Apply the interactive custom scale multiplier
                 scale_multiplier = subject_scale / 100.0
                 target_sub_w = int(base_w * scale_multiplier)
                 target_sub_h = int(base_h * scale_multiplier)
 
                 subject_copy = no_bg_image.resize((target_sub_w, target_sub_h), Image.Resampling.LANCZOS)
                 
-                # Create solid background
                 solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
                 
-                # Calculate coordinates centered horizontally
                 offset_x = (photo_width - target_sub_w) // 2
-                
-                # Default vertical placement is aligned to the absolute bottom of the passport frame.
-                # Adding `vertical_nudge` lets you shift the image up or down with precision.
                 offset_y = (photo_height - target_sub_h) + vertical_nudge
                 
                 solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
@@ -398,7 +382,7 @@ if access_granted:
         with col1:
             st.write("### 👤 Passport Previews")
             for idx, p_img in enumerate(processed_images):
-                st.image(p_img, caption=f"Photo {idx+1} ({photo_width}x{photo_height}px)", use_container_width=True)
+                st.image(p_img, caption=f"Photo {idx+1} ({photo_width}x{photo_height}px)", width='stretch')
             
         with col2:
             st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
@@ -434,7 +418,7 @@ if access_granted:
                 if copies_pasted >= num_copies:
                     break
                     
-            st.image(a4_canvas, caption="Multi-Photo A4 Layout", use_container_width=True)
+            st.image(a4_canvas, caption="Multi-Photo A4 Layout", width='stretch')
 
             # Save A4 to binary stream
             buffered = io.BytesIO()
@@ -451,7 +435,7 @@ if access_granted:
                     data=img_bytes,
                     file_name="passport_print_sheet.jpg",
                     mime="image/jpeg",
-                    use_container_width=True,
+                    width='stretch',
                 )
                 
             with action_col2:
@@ -501,7 +485,8 @@ if access_granted:
                 </body>
                 </html>
                 """
-                components.html(print_html, height=60)
+                # Updated deprecated component to modern iframe 
+                st.iframe(f"data:text/html;base64,{base64.b64encode(print_html.encode()).decode()}", height=60)
 
 else:
     if user_password != "":
@@ -550,4 +535,5 @@ else:
             </p>
         </div>
         """
-        st.components.v1.html(payment_html, height=260)
+        # Updated deprecated component to modern iframe
+        st.iframe(f"data:text/html;base64,{base64.b64encode(payment_html.encode()).decode()}", height=260)
