@@ -339,25 +339,25 @@ if access_granted:
                     alpha_matting_erode_size=2  # Preserve fine hair strands/edges
                 ).convert("RGBA")
                 
-                # --- 📐 SEAMLESS SHOULDER ALIGNMENT ---
+                # --- 📐 SEAMLESS MATHEMATICAL ALIGNMENT (PREVENTS HAIR CLIPPING) ---
                 orig_w, orig_h = no_bg_image.size
                 aspect_ratio = orig_h / orig_w
                 
-                # Scale the subject so it fits perfectly inside the passport container widthwise
-                target_sub_w = photo_width
-                target_sub_h = int(photo_width * aspect_ratio)
+                # Scale the subject to match the vertical frame height first
+                target_sub_h = photo_height
+                target_sub_w = int(photo_height / aspect_ratio)
                 
-                # If target height is too short to fill the vertical frame, scale up based on height
-                if target_sub_h < photo_height:
-                    target_sub_h = photo_height
-                    target_sub_w = int(photo_height / aspect_ratio)
+                # If the resulting width overflows the passport frame boundaries, fit to width instead
+                if target_sub_w > photo_width:
+                    target_sub_w = photo_width
+                    target_sub_h = int(photo_width * aspect_ratio)
 
                 subject_copy = no_bg_image.resize((target_sub_w, target_sub_h), Image.Resampling.LANCZOS)
                 
                 # Create background canvas using the selected Hex code
                 solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
                 
-                # Paste the subject flush against the absolute bottom edge of the frame
+                # Paste subject centered horizontally, flush at the bottom edge (ensuring vertical bounds remain >= 0)
                 offset_x = (photo_width - target_sub_w) // 2
                 offset_y = photo_height - target_sub_h
                 
