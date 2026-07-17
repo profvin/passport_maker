@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 from PIL import Image, ImageEnhance, ImageOps
 import io
 import base64
-from rembg import remove
+from rembg import remove, new_session
 import hashlib
 from datetime import datetime
 
@@ -160,7 +160,7 @@ if access_granted:
             
     st.markdown("---")
     
-    # --- Step 1: File Uploader (MULTIPLE FILES ENABLED 🚀) ---
+    # --- Step 1: File Uploader ---
     uploaded_files = st.file_uploader(
         "Upload portrait photo(s)", 
         type=["jpg", "jpeg", "png"], 
@@ -173,6 +173,10 @@ if access_granted:
         for file in uploaded_files:
             try:
                 img = Image.open(file)
+                # Keep original transparency channel settings clean, drop ICC profile profiles if corrupt
+                img = ImageOps.exif_transpose(img)
+                img = img.convert("RGBA")
+                
                 # ⚡ SPEED OPTIMIZATION
                 MAX_PROCESSING_DIM = 1000
                 if max(img.size) > MAX_PROCESSING_DIM:
@@ -312,10 +316,20 @@ if access_granted:
 
         # --- Processing Engine ---
         processed_images = []
-        with st.spinner("⚡ Removing backgrounds & applying seamless shoulder adjustments..."):
+        with st.spinner("⚡ Removing backgrounds & applying high-detail hair adjustments..."):
+            # Setup background remover session with advanced Alpha Matting enabled to preserve hair details
+            high_detail_session = new_session(model_name="u2net")
+            
             for idx, img in enumerate(input_images):
-                # Remove background
-                no_bg_image = remove(img).convert("RGBA")
+                # Run background removal with alpha matting parameters to save hair edge gradients
+                no_bg_image = remove(
+                    img,
+                    session=high_detail_session,
+                    alpha_matting=True,
+                    alpha_matting_foreground_threshold=240,
+                    alpha_matting_background_threshold=10,
+                    alpha_matting_erode_size=10
+                ).convert("RGBA")
                 
                 # --- 📐 SEAMLESS SHOULDER ALIGNMENT ---
                 orig_w, orig_h = no_bg_image.size
