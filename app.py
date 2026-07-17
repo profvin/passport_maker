@@ -37,6 +37,14 @@ st.markdown(
         background-color: #FFFFFF !important;
     }
     
+    /* Avoid dark background wrapping in the uploader previews */
+    [data-testid="stImage"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #f0f0f0;
+        border-radius: 4px;
+        padding: 5px;
+    }
+    
     /* Hides the top header bar (including Deploy button) */
     header {visibility: hidden;}
     
@@ -173,7 +181,7 @@ if access_granted:
         for file in uploaded_files:
             try:
                 img = Image.open(file)
-                # Keep original transparency channel settings clean, drop ICC profile profiles if corrupt
+                # Keep original transparency channel settings clean, drop corrupt ICC profiles
                 img = ImageOps.exif_transpose(img)
                 img = img.convert("RGBA")
                 
@@ -316,40 +324,48 @@ if access_granted:
 
         # --- Processing Engine ---
         processed_images = []
-        with st.spinner("⚡ Removing backgrounds & applying high-detail hair adjustments..."):
-            # Setup background remover session with advanced Alpha Matting enabled to preserve hair details
-            high_detail_session = new_session(model_name="u2net")
+        with st.spinner("⚡ Processing high-detail hair segmentation..."):
+            # Load the dedicated Human Segmentation AI model to isolate hair accurately
+            hair_safe_session = new_session(model_name="u2net_human_seg")
             
             for idx, img in enumerate(input_images):
-                # Run background removal with alpha matting parameters to save hair edge gradients
-                no_bg_image = remove(
-                    img,
-                    session=high_detail_session,
+                # Add temporary white padding to the top of the image so hair boundaries near the edge aren't cutoff
+                pad_width, pad_height = img.size
+                padding_offset_y = 60 # extra pixels to protect tall hair buns/ends
+                
+                padded_canvas = Image.new("RGBA", (pad_width, pad_height + padding_offset_y), (255, 255, 255, 0))
+                padded_canvas.paste(img, (0, padding_offset_y))
+                
+                # Run background removal on padded canvas using alpha matting
+                no_bg_padded = remove(
+                    padded_canvas,
+                    session=hair_safe_session,
                     alpha_matting=True,
                     alpha_matting_foreground_threshold=240,
                     alpha_matting_background_threshold=10,
-                    alpha_matting_erode_size=10
+                    alpha_matting_erode_size=5 # reduced to preserve micro-hair details
                 ).convert("RGBA")
+                
+                # Crop away the top padding offset to restore original perspective
+                no_bg_image = no_bg_padded.crop((0, padding_offset_y, pad_width, pad_height + padding_offset_y))
                 
                 # --- 📐 SEAMLESS SHOULDER ALIGNMENT ---
                 orig_w, orig_h = no_bg_image.size
                 aspect_ratio = orig_h / orig_w
                 
-                # Scale so that the subject's width stretches to fit the output frame width
                 target_sub_w = photo_width
                 target_sub_h = int(photo_width * aspect_ratio)
                 
-                # If calculated height is too short, fit based on height
                 if target_sub_h < photo_height:
                     target_sub_h = photo_height
                     target_sub_w = int(photo_height / aspect_ratio)
 
                 subject_copy = no_bg_image.resize((target_sub_w, target_sub_h), Image.Resampling.LANCZOS)
                 
-                # Create background canvas
+                # Create background canvas using the selected Hex code
                 solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
                 
-                # Paste flush at the absolute bottom margin
+                # Paste flush at bottom margin
                 offset_x = (photo_width - target_sub_w) // 2
                 offset_y = photo_height - target_sub_h
                 
@@ -373,7 +389,7 @@ if access_granted:
         
         with col1:
             st.write("### 👤 Passport Previews")
-            # Show a scrollable gallery of the processed individual previews
+            # Render individual previews with a white card-style border (avoids black backgrounds)
             for idx, p_img in enumerate(processed_images):
                 st.image(p_img, caption=f"Photo {idx+1} ({photo_width}x{photo_height}px)", use_container_width=True)
             
