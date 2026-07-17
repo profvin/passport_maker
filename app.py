@@ -324,38 +324,30 @@ if access_granted:
 
         # --- Processing Engine ---
         processed_images = []
-        with st.spinner("⚡ Processing high-detail hair segmentation..."):
+        with st.spinner("⚡ Running high-detail hair segmentation..."):
             # Load the dedicated Human Segmentation AI model to isolate hair accurately
             hair_safe_session = new_session(model_name="u2net_human_seg")
             
             for idx, img in enumerate(input_images):
-                # Add temporary white padding to the top of the image so hair boundaries near the edge aren't cutoff
-                pad_width, pad_height = img.size
-                padding_offset_y = 60 # extra pixels to protect tall hair buns/ends
-                
-                padded_canvas = Image.new("RGBA", (pad_width, pad_height + padding_offset_y), (255, 255, 255, 0))
-                padded_canvas.paste(img, (0, padding_offset_y))
-                
-                # Run background removal on padded canvas using alpha matting
-                no_bg_padded = remove(
-                    padded_canvas,
+                # Run background removal directly on input image using alpha matting
+                no_bg_image = remove(
+                    img,
                     session=hair_safe_session,
                     alpha_matting=True,
                     alpha_matting_foreground_threshold=240,
                     alpha_matting_background_threshold=10,
-                    alpha_matting_erode_size=5 # reduced to preserve micro-hair details
+                    alpha_matting_erode_size=2  # Preserve fine hair strands/edges
                 ).convert("RGBA")
-                
-                # Crop away the top padding offset to restore original perspective
-                no_bg_image = no_bg_padded.crop((0, padding_offset_y, pad_width, pad_height + padding_offset_y))
                 
                 # --- 📐 SEAMLESS SHOULDER ALIGNMENT ---
                 orig_w, orig_h = no_bg_image.size
                 aspect_ratio = orig_h / orig_w
                 
+                # Scale the subject so it fits perfectly inside the passport container widthwise
                 target_sub_w = photo_width
                 target_sub_h = int(photo_width * aspect_ratio)
                 
+                # If target height is too short to fill the vertical frame, scale up based on height
                 if target_sub_h < photo_height:
                     target_sub_h = photo_height
                     target_sub_w = int(photo_height / aspect_ratio)
@@ -365,7 +357,7 @@ if access_granted:
                 # Create background canvas using the selected Hex code
                 solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
                 
-                # Paste flush at bottom margin
+                # Paste the subject flush against the absolute bottom edge of the frame
                 offset_x = (photo_width - target_sub_w) // 2
                 offset_y = photo_height - target_sub_h
                 
