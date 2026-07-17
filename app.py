@@ -160,17 +160,26 @@ if access_granted:
             
     st.markdown("---")
     
-    # --- Step 1: File Uploader ---
-    uploaded_file = st.file_uploader("Upload a portrait photo", type=["jpg", "jpeg", "png"])
+    # --- Step 1: File Uploader (MULTIPLE FILES ENABLED 🚀) ---
+    uploaded_files = st.file_uploader(
+        "Upload portrait photo(s)", 
+        type=["jpg", "jpeg", "png"], 
+        accept_multiple_files=True
+    )
 
-    if uploaded_file is not None:
-        # Load original image
-        input_image = Image.open(uploaded_file)
-        
-        # ⚡ SPEED OPTIMIZATION
-        MAX_PROCESSING_DIM = 1000
-        if max(input_image.size) > MAX_PROCESSING_DIM:
-            input_image.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
+    if uploaded_files:
+        # Load and verify all uploaded images
+        input_images = []
+        for file in uploaded_files:
+            try:
+                img = Image.open(file)
+                # ⚡ SPEED OPTIMIZATION
+                MAX_PROCESSING_DIM = 1000
+                if max(img.size) > MAX_PROCESSING_DIM:
+                    img.thumbnail((MAX_PROCESSING_DIM, MAX_PROCESSING_DIM), Image.Resampling.LANCZOS)
+                input_images.append(img)
+            except Exception as e:
+                st.error(f"Error loading file {file.name}: {e}")
         
         # --- 🎨 MAIN SCREEN CONTROL PANEL ---
         st.markdown("### 🎨 Image Editing & Layout Controls")
@@ -209,7 +218,7 @@ if access_granted:
             if len(hex_input) != 7:
                 hex_input = "#FFFFFF"
                 
-            # --- 🎨 EXPLICIT VISUAL COLOR PALETTE (No Blockers!) ---
+            # --- 🎨 EXPLICIT VISUAL COLOR PALETTE ---
             st.markdown("<p style='font-size:0.85rem; font-weight:bold; margin-bottom:5px;'>Or select from this Interactive Studio Palette:</p>", unsafe_allow_html=True)
             
             # A rich collection of studio-standard portrait backgrounds
@@ -292,7 +301,7 @@ if access_granted:
             photo_height = max(100, photo_height)
 
         with ctrl_col2:
-            num_copies = st.slider("Number of Copies", min_value=1, max_value=24, value=8, step=1)
+            num_copies = st.slider("Total Number of Copies (A4 Sheet)", min_value=1, max_value=24, value=8, step=1)
             brightness = st.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
             
         with ctrl_col3:
@@ -302,40 +311,57 @@ if access_granted:
         st.markdown("---")
 
         # --- Processing Engine ---
-        with st.spinner("⚡ Removing background & adjusting colors..."):
-            no_bg_image = remove(input_image).convert("RGBA")
-            
-            # ✨ ANTI-CROP ENGINE
-            subject_copy = no_bg_image.copy()
-            subject_copy.thumbnail((photo_width, photo_height), Image.Resampling.LANCZOS)
-            
-            # Create the solid background canvas
-            solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
-            
-            # 📐 POSITIONAL ALIGNMENT: 
-            # Center horizontally, paste flush against the BOTTOM margin
-            offset_x = (photo_width - subject_copy.width) // 2
-            offset_y = photo_height - subject_copy.height  # Sits completely on the bottom line!
-            
-            solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
-            combined_image = solid_bg.convert("RGB")
-            
-            # Apply adjustments
-            enhancer = ImageEnhance.Brightness(combined_image)
-            combined_image = enhancer.enhance(brightness)
-            
-            enhancer = ImageEnhance.Contrast(combined_image)
-            combined_image = enhancer.enhance(contrast)
-            
-            enhancer = ImageEnhance.Color(combined_image)
-            combined_image = enhancer.enhance(saturation)
+        processed_images = []
+        with st.spinner("⚡ Removing backgrounds & applying seamless shoulder adjustments..."):
+            for idx, img in enumerate(input_images):
+                # Remove background
+                no_bg_image = remove(img).convert("RGBA")
+                
+                # --- 📐 SEAMLESS SHOULDER ALIGNMENT ---
+                orig_w, orig_h = no_bg_image.size
+                aspect_ratio = orig_h / orig_w
+                
+                # Scale so that the subject's width stretches to fit the output frame width
+                target_sub_w = photo_width
+                target_sub_h = int(photo_width * aspect_ratio)
+                
+                # If calculated height is too short, fit based on height
+                if target_sub_h < photo_height:
+                    target_sub_h = photo_height
+                    target_sub_w = int(photo_height / aspect_ratio)
+
+                subject_copy = no_bg_image.resize((target_sub_w, target_sub_h), Image.Resampling.LANCZOS)
+                
+                # Create background canvas
+                solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
+                
+                # Paste flush at the absolute bottom margin
+                offset_x = (photo_width - target_sub_w) // 2
+                offset_y = photo_height - target_sub_h
+                
+                solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
+                combined_image = solid_bg.convert("RGB")
+                
+                # Apply filters
+                enhancer = ImageEnhance.Brightness(combined_image)
+                combined_image = enhancer.enhance(brightness)
+                
+                enhancer = ImageEnhance.Contrast(combined_image)
+                combined_image = enhancer.enhance(contrast)
+                
+                enhancer = ImageEnhance.Color(combined_image)
+                combined_image = enhancer.enhance(saturation)
+                
+                processed_images.append(combined_image)
 
         # --- Display Layout ---
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.write("### 👤 Single Passport Preview")
-            st.image(combined_image, caption=f"Locked to {photo_width}x{photo_height}px", use_container_width=True)
+            st.write("### 👤 Passport Previews")
+            # Show a scrollable gallery of the processed individual previews
+            for idx, p_img in enumerate(processed_images):
+                st.image(p_img, caption=f"Photo {idx+1} ({photo_width}x{photo_height}px)", use_container_width=True)
             
         with col2:
             st.write(f"### 🖨️ Generated A4 Print Sheet ({num_copies} Copies)")
@@ -354,19 +380,26 @@ if access_granted:
             else:
                 cols_count, rows_count = 1, 1
             
+            # Distribute copies evenly among all uploaded images
+            num_pics = len(processed_images)
             copies_pasted = 0
+            
             for row in range(int(rows_count)):
                 for col in range(int(cols_count)):
                     if copies_pasted >= num_copies:
                         break
+                    
+                    # Round-robin selection through uploaded photos
+                    current_image = processed_images[copies_pasted % num_pics]
+                    
                     x = margin_x + col * step_w
                     y = margin_y + row * step_h
-                    a4_canvas.paste(combined_image, (x, y))
+                    a4_canvas.paste(current_image, (x, y))
                     copies_pasted += 1
                 if copies_pasted >= num_copies:
                     break
                     
-            st.image(a4_canvas, caption="A4 Print Sheet Layout", use_container_width=True)
+            st.image(a4_canvas, caption="Multi-Photo A4 Layout", use_container_width=True)
 
             # Save A4 to binary stream
             buffered = io.BytesIO()
