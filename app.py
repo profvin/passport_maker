@@ -224,7 +224,6 @@ if access_granted:
                 help="Type any standard hex code. Don't worry, you can also use the color pallete grid below!"
             )
             
-            # Clean up the hex text input to be valid
             if not hex_input.startswith("#"):
                 hex_input = f"#{hex_input}"
             if len(hex_input) != 7:
@@ -233,7 +232,6 @@ if access_granted:
             # --- 🎨 EXPLICIT VISUAL COLOR PALETTE ---
             st.markdown("<p style='font-size:0.85rem; font-weight:bold; margin-bottom:5px;'>Or select from this Interactive Studio Palette:</p>", unsafe_allow_html=True)
             
-            # A rich collection of studio-standard portrait backgrounds
             palette_colors = [
                 ("#FFFFFF", "White"), ("#ADD8E6", "Lt Blue"), ("#D3D3D3", "Lt Grey"), 
                 ("#87CEEB", "Sky Blue"), ("#4169E1", "Royal Blue"), ("#000080", "Navy"),
@@ -243,18 +241,15 @@ if access_granted:
                 ("#333333", "Charcoal"), ("#000000", "Black"), ("#4B0082", "Indigo")
             ]
             
-            # Render visual grid buttons
             cols = st.columns(6)
             chosen_palette_color = None
             
             for idx, (hex_code, label) in enumerate(palette_colors):
                 col_target = cols[idx % 6]
                 with col_target:
-                    # Renders a colored block button
                     if st.button("", key=f"color_btn_{idx}", help=f"Click to select {label} ({hex_code})"):
                         chosen_palette_color = hex_code
                         
-                    # Visual representation of color circle/box
                     st.markdown(
                         f"""
                         <div style="
@@ -270,7 +265,6 @@ if access_granted:
                         unsafe_allow_html=True
                     )
             
-            # If a visual block is clicked, override the final hex color output
             if chosen_palette_color:
                 bg_color_hex = chosen_palette_color
                 st.success(f"Selected color: {bg_color_hex}")
@@ -315,9 +309,29 @@ if access_granted:
         with ctrl_col2:
             num_copies = st.slider("Total Number of Copies (A4 Sheet)", min_value=1, max_value=24, value=8, step=1)
             brightness = st.slider("Brightness", 0.5, 2.0, 1.0, 0.1)
+            contrast = st.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
             
         with ctrl_col3:
-            contrast = st.slider("Contrast", 0.5, 2.0, 1.0, 0.1)
+            # --- 🛠️ DYNAMIC POSITIONING & SIZING CONTROLS ---
+            st.markdown("**👤 Subject Nudging Controls**")
+            subject_scale = st.slider(
+                "Subject Scale % (Zoom)", 
+                min_value=70, 
+                max_value=130, 
+                value=100, 
+                step=2,
+                help="Zoom in or out to make the head fill the frame better or leave breathing room."
+            )
+            
+            vertical_nudge = st.slider(
+                "Subject Vertical Offset (Move Up/Down)", 
+                min_value=-150, 
+                max_value=150, 
+                value=0, 
+                step=5,
+                help="Nudge the subject down to prevent hair cuts, or up to hide background empty space at the bottom."
+            )
+            
             saturation = st.slider("Saturation (Color)", 0.5, 2.0, 1.0, 0.1)
 
         st.markdown("---")
@@ -325,41 +339,43 @@ if access_granted:
         # --- Processing Engine ---
         processed_images = []
         with st.spinner("⚡ Running high-detail hair segmentation..."):
-            # Load the dedicated Human Segmentation AI model to isolate hair accurately
             hair_safe_session = new_session(model_name="u2net_human_seg")
             
             for idx, img in enumerate(input_images):
-                # Run background removal directly on input image using alpha matting
+                # Run background removal
                 no_bg_image = remove(
                     img,
                     session=hair_safe_session,
                     alpha_matting=True,
                     alpha_matting_foreground_threshold=240,
                     alpha_matting_background_threshold=10,
-                    alpha_matting_erode_size=2  # Preserve fine hair strands/edges
+                    alpha_matting_erode_size=2
                 ).convert("RGBA")
                 
-                # --- 📐 SEAMLESS MATHEMATICAL ALIGNMENT (PREVENTS HAIR CLIPPING) ---
+                # --- 📐 RE-ENGINEERED SMART NUDGING SCALE ENGINE ---
                 orig_w, orig_h = no_bg_image.size
                 aspect_ratio = orig_h / orig_w
                 
-                # Scale the subject to match the vertical frame height first
-                target_sub_h = photo_height
-                target_sub_w = int(photo_height / aspect_ratio)
+                # Base scale fills the width completely first (ensuring zero side gaps)
+                base_w = photo_width
+                base_h = int(photo_width * aspect_ratio)
                 
-                # If the resulting width overflows the passport frame boundaries, fit to width instead
-                if target_sub_w > photo_width:
-                    target_sub_w = photo_width
-                    target_sub_h = int(photo_width * aspect_ratio)
+                # Apply the interactive custom scale multiplier
+                scale_multiplier = subject_scale / 100.0
+                target_sub_w = int(base_w * scale_multiplier)
+                target_sub_h = int(base_h * scale_multiplier)
 
                 subject_copy = no_bg_image.resize((target_sub_w, target_sub_h), Image.Resampling.LANCZOS)
                 
-                # Create background canvas using the selected Hex code
+                # Create solid background
                 solid_bg = Image.new("RGBA", (photo_width, photo_height), bg_color_hex)
                 
-                # Paste subject centered horizontally, flush at the bottom edge (ensuring vertical bounds remain >= 0)
+                # Calculate coordinates centered horizontally
                 offset_x = (photo_width - target_sub_w) // 2
-                offset_y = photo_height - target_sub_h
+                
+                # Default vertical placement is aligned to the absolute bottom of the passport frame.
+                # Adding `vertical_nudge` lets you shift the image up or down with precision.
+                offset_y = (photo_height - target_sub_h) + vertical_nudge
                 
                 solid_bg.paste(subject_copy, (offset_x, offset_y), subject_copy)
                 combined_image = solid_bg.convert("RGB")
@@ -381,7 +397,6 @@ if access_granted:
         
         with col1:
             st.write("### 👤 Passport Previews")
-            # Render individual previews with a white card-style border (avoids black backgrounds)
             for idx, p_img in enumerate(processed_images):
                 st.image(p_img, caption=f"Photo {idx+1} ({photo_width}x{photo_height}px)", use_container_width=True)
             
@@ -402,7 +417,6 @@ if access_granted:
             else:
                 cols_count, rows_count = 1, 1
             
-            # Distribute copies evenly among all uploaded images
             num_pics = len(processed_images)
             copies_pasted = 0
             
@@ -411,7 +425,6 @@ if access_granted:
                     if copies_pasted >= num_copies:
                         break
                     
-                    # Round-robin selection through uploaded photos
                     current_image = processed_images[copies_pasted % num_pics]
                     
                     x = margin_x + col * step_w
